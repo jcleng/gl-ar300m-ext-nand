@@ -1,3 +1,17 @@
+
+# gl-ar300m-nand 编译
+
+编译出来没有.img文件,那就先刷如openwrt再进入web界面进行手动升级即可
+
+
+![https://z3.ax1x.com/2021/05/28/2F4TEt.png](https://z3.ax1x.com/2021/05/28/2F4TEt.png)
+
+- 下载官方的uboot-img镜像(都使用nand的当时,nor不去动)
+
+openwrt官方[下载](https://downloads.openwrt.org/releases/21.02.0-rc1/targets/ath79/nand/)
+
+gl官方[下载](https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/)
+
 # Actions-OpenWrt
 
 [![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square&label=LICENSE)](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
