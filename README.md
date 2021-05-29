@@ -5,7 +5,11 @@
 
 
 ![https://z3.ax1x.com/2021/05/28/2F4TEt.png](https://z3.ax1x.com/2021/05/28/2F4TEt.png)
+配置1
+![https://z3.ax1x.com/2021/05/29/2AGV7q.png](https://z3.ax1x.com/2021/05/29/2AGV7q.png)
 
+配置2
+![https://z3.ax1x.com/2021/05/29/2AGStf.png](https://z3.ax1x.com/2021/05/29/2AGStf.png)
 - 下载官方的uboot-img镜像(都使用nand的当时,nor不去动)
 
 openwrt官方[下载](https://downloads.openwrt.org/releases/21.02.0-rc1/targets/ath79/nand/)
