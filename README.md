@@ -1,13 +1,13 @@
 
 # gl-ar300m-nand 编译
 
-编译出来没有.img文件,那就先刷如openwrt再进入web界面进行手动升级即可
+配置
+![https://z3.ax1x.com/2021/05/29/2AGStf.png](https://z3.ax1x.com/2021/05/29/2AGStf.png)
 
 
 ![https://z3.ax1x.com/2021/05/29/2A08DU.png](https://z3.ax1x.com/2021/05/29/2A08DU.png)
 
-配置
-![https://z3.ax1x.com/2021/05/29/2AGStf.png](https://z3.ax1x.com/2021/05/29/2AGStf.png)
+
 
 
 - 下载官方的uboot-img镜像(使用nand,nor不去动)
