@@ -8,7 +8,7 @@
 ![https://z3.ax1x.com/2021/05/29/2A08DU.png](https://z3.ax1x.com/2021/05/29/2A08DU.png)
 
 
-下载当前固件： https://github.com/jcleng/gl-ar300m-ext-nand/actions/runs/888316599
+下载当前固件： actions里面最新即可 https://github.com/jcleng/gl-ar300m-ext-nand/actions/runs/888316599
 
 ![https://z3.ax1x.com/2021/05/29/2E3CkV.jpg](https://z3.ax1x.com/2021/05/29/2E3CkV.jpg)
 
