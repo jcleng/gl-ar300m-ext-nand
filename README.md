@@ -23,5 +23,5 @@ gl官方[下载](https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/)
 
 # 保存之后用scripts/diffconfig.sh脚本进行导出刚刚配置的文件
 ./scripts/diffconfig.sh > min.config
-# 然后把min.config内容替换到本项目的.config文件即可
+# 然后把min.config内容替换到本项目的.config文件即可(项目编译的时候make defconfig会重新补全的)
 ```
