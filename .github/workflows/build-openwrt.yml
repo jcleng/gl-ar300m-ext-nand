@@ -77,7 +77,6 @@ jobs:
 
     - name: Organize files
       id: organize
-      if: !cancelled()
       run: |
         cd openwrt/bin/
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
