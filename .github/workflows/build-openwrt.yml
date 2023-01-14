@@ -56,9 +56,9 @@ jobs:
 
     - name: .config file init
       run: |
+        cp ./.config openwrt/.config
         cd openwrt
         rm -rf ./bin ./build_dir ./tmp
-        cp ../.config ./.config
         make defconfig
         mkdir ./bin
         cat ./.config
