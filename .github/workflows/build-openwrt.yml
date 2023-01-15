@@ -79,6 +79,7 @@ jobs:
     - name: FIRMWARE set path
       id: organize
       run: |
+        touch release.txt
         cd openwrt/bin/
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
