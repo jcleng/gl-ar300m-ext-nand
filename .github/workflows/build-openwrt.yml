@@ -65,8 +65,18 @@ jobs:
         cat ./.config
         cp ./.config ./bin/config.bak
 
-    - name: Cache
+    - name: Cache Hook
       uses: actions/cache@v3
+      with:
+        path: |
+          openwrt/bin
+          openwrt/build_dir
+          openwrt/staging_dir
+          openwrt/tmp
+        key: cache_ar300nand
+
+    - name: Get Cache
+    - uses: actions/cache/save@v3
       with:
         path: |
           openwrt/bin
