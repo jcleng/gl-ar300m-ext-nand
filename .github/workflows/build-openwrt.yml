@@ -88,7 +88,6 @@ jobs:
     - name: FIRMWARE set path
       id: organize
       run: |
-        touch release.txt
         cd openwrt/bin/
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
@@ -98,12 +97,17 @@ jobs:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
+    - name: Release set path
+      run: |
+        touch release.txt
+        cd openwrt/bin/targets/*/*
+        echo "RELEASE_PATH=$PWD" >> $GITHUB_ENV
+
     - name: Release
       uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        tag_name: ${{ env.RELEASE_PATH }}${{ env.FILE_DATE }}
         body_path: release.txt
-        files: |
-          - openwrt/bin/targets/*/*/*
+        files: ${{ env.RELEASE_PATH }}/*
