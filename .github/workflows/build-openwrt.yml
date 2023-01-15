@@ -80,7 +80,8 @@ jobs:
     - name: make
       run: |
         cd openwrt
-        tree -L 4
+        mkdir build_dir
+        ls build_dir
         make download -j8
         rm -rf build.log
         make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
