@@ -76,7 +76,7 @@ jobs:
         key: cache_ar300nand
 
     - name: Get Cache
-    - uses: actions/cache/save@v3
+      uses: actions/cache/save@v3
       with:
         path: |
           openwrt/bin
