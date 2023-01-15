@@ -89,7 +89,7 @@ jobs:
         path: ${{ env.FIRMWARE }}
 
 
-   - name: delete package
+    - name: delete package
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf packages
