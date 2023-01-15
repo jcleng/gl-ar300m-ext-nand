@@ -65,6 +65,16 @@ jobs:
         cat ./.config
         cp ./.config ./bin/config.bak
 
+    - name: Cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          openwrt/bin
+          openwrt/build_dir
+          openwrt/dl
+          openwrt/tmp
+        key: cache_ar300nand
+
     - name: make
       run: |
         cd openwrt
