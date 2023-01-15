@@ -110,6 +110,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: OpenWrt_${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        tag_name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         body_path: release.txt
         files: ${{ env.RELEASE_PATH }}/*
