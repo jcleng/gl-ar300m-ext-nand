@@ -71,7 +71,7 @@ jobs:
         path: |
           openwrt/bin
           openwrt/build_dir
-          openwrt/dl
+          # openwrt/dl
           openwrt/tmp
         key: cache_ar300nand
 
