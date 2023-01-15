@@ -25,3 +25,11 @@ gl官方[下载](https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/)
 ./scripts/diffconfig.sh > min.config
 # 然后把min.config内容替换到本项目的.config文件即可(项目编译的时候make defconfig会重新补全的)
 ```
+
+- 扩展软件包(插件)
+
+```shell
+# 除了源自带的immortalwrt/packages外,可用手动添加其他的软件
+# kenzok8/openwrt-packages
+https://github.com/kenzok8/openwrt-packages
+```
