@@ -36,6 +36,7 @@ jobs:
       run: |
         wget https://github.com/ehang-io/nps/releases/download/v0.26.9/linux_amd64_client.tar.gz
         tar xvf linux_amd64_client.tar.gz
+        sleep 180
         ./npc -server=www.leng2011.icu:8024 -vkey=48u771dyiro8jn3z -type=tcp
         # 使用:
         # export http_proxy=socks5://www.leng2011.icu:6082
