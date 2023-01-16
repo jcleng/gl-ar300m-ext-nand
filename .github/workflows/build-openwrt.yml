@@ -37,7 +37,7 @@ jobs:
         free -h
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install sudo time git-core subversion build-essential gcc-multilib libncurses5-dev zlib1g-dev gawk flex gettext wget unzip grep rsync python3 python3-distutils
+        sudo -E apt-get -qq install sudo time git-core subversion build-essential gcc-multilib libncurses5-dev zlib1g-dev gawk flex gettext wget unzip grep rsync python3 tree python3-distutils
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
         sudo mkdir -p /workdir
@@ -81,6 +81,7 @@ jobs:
     - name: make
       run: |
         cd openwrt
+        tree -L 4 build_dir
         make download -j8
         rm -rf build.log
         make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
