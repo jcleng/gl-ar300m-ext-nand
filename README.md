@@ -1,6 +1,8 @@
 
 # gl-ar300m-nand 编译
 
+- [openwrt wiki howto build](https://openwrt.org/zh-cn/doc/howto/build)
+
 配置
 ![https://z3.ax1x.com/2021/05/29/2AGStf.png](https://z3.ax1x.com/2021/05/29/2AGStf.png)
 
