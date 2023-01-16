@@ -90,6 +90,12 @@ jobs:
       run: |
         mkdir ./bin
         cp ./.config ./bin/config.bak
+
+    - name: Change IP to..192.168.8.1
+      run: |
+        cd openwrt
+        sed -i "s/192.168.1.1/192.168.8.1/" package/base-files/files/bin/config_generate
+
     - name: make
       run: |
         cd openwrt
