@@ -61,9 +61,8 @@ jobs:
         cd openwrt
         rm -rf ./bin ./build_dir ./tmp
         make defconfig
-        mkdir ./bin
         cat ./.config
-        cp ./.config ./bin/config.bak
+
 
     - name: Cache Hook
       uses: actions/cache@v3
@@ -78,6 +77,11 @@ jobs:
           cache_ar300nand_
           cache_ar300nand
           cache
+
+    - name: .config file bak
+      run: |
+        mkdir ./bin
+        cp ./.config ./bin/config.bak
     - name: make
       run: |
         cd openwrt
