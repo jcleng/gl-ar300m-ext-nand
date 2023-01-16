@@ -28,7 +28,7 @@ https://github.com/kenzok8/openwrt-packages
 
 - 下载官方的uboot-img镜像(使用nand,nor不去动)
 
-  openwrt官方[下载](https://downloads.openwrt.org/releases/21.02.0-rc1/targets/ath79/nand/)
+  openwrt官方[下载](https://downloads.openwrt.org/releases/22.03.3/targets/ath79/nand/)
 
   gl官方[下载](https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/)
 
