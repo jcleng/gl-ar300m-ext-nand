@@ -73,8 +73,9 @@ jobs:
           openwrt/build_dir
           openwrt/staging_dir
           openwrt/tmp
-        key: cache_ar300nand
+        key: cache_ar300nand_${{ hashFiles('openwrt/.config') }}
         restore-keys: |
+          cache_ar300nand_
           cache_ar300nand
           cache
     - name: make
