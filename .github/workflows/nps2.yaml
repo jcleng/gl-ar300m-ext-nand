@@ -8,7 +8,7 @@
 # Description: Build OpenWrt using GitHub Actions
 #
 
-name: nps
+name: nps2
 
 on:
   repository_dispatch:
@@ -19,7 +19,7 @@ on:
         required: false
         default: 'false'
   workflow_run:
-    workflows: [nps2] # nps2完成之后会执行
+    workflows: [nps] # nps完成之后会执行
     types:
       - completed
 
