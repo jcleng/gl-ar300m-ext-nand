@@ -18,10 +18,10 @@ on:
         description: 'SSH connection to Actions'
         required: false
         default: 'false'
-  workflow_run:
-    workflows: [nps] # nps完成之后会执行
-    types:
-      - completed
+  # workflow_run:
+  #   workflows: [nps] # nps完成之后会执行
+  #   types:
+  #     - completed
 
 env:
   TZ: Asia/Shanghai
