@@ -92,7 +92,6 @@ jobs:
         restore-keys: |
           cache_x86_
           cache_x86
-          cache
 
     - name: .config file bak
       run: |
