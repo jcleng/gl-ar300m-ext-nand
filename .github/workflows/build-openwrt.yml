@@ -8,7 +8,7 @@
 # Description: Build OpenWrt using GitHub Actions
 #
 
-name: Build OpenWrt
+name: Build OpenWrt(x86)
 
 on:
   repository_dispatch:
@@ -86,10 +86,10 @@ jobs:
           openwrt/build_dir
           openwrt/staging_dir
           openwrt/tmp
-        key: cache_ar300nand_${{ hashFiles('openwrt/.config') }}
+        key: cache_x86_${{ hashFiles('openwrt/.config') }}
         restore-keys: |
-          cache_ar300nand_
-          cache_ar300nand
+          cache_x86_
+          cache_x86
           cache
 
     - name: .config file bak
