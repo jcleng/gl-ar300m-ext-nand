@@ -90,7 +90,6 @@ jobs:
         restore-keys: |
           cache_ar300nand_
           cache_ar300nand
-          cache
 
     - name: .config file bak
       run: |
