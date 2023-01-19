@@ -80,18 +80,18 @@ jobs:
         cat ./.config
 
 
-    - name: Cache Hook
-      uses: actions/cache@v3
-      with:
-        path: |
-          openwrt/bin
-          openwrt/build_dir
-          openwrt/staging_dir
-          openwrt/tmp
-        key: cache_x86_${{ hashFiles('openwrt/.config') }}
-        restore-keys: |
-          cache_x86_
-          cache_x86
+    # - name: Cache Hook
+    #   uses: actions/cache@v3
+    #   with:
+    #     path: |
+    #       openwrt/bin
+    #       openwrt/build_dir
+    #       openwrt/staging_dir
+    #       openwrt/tmp
+    #     key: cache_x86_${{ hashFiles('openwrt/.config') }}
+    #     restore-keys: |
+    #       cache_x86_
+    #       cache_x86
 
     - name: .config file bak
       run: |
