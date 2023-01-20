@@ -35,6 +35,7 @@ jobs:
       run: |
         echo $(nproc)
         free -h
+        echo "THIS_DATE=$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
         sudo -E apt-get -qq install sudo time git-core subversion build-essential gcc-multilib libncurses5-dev zlib1g-dev gawk flex gettext wget unzip grep rsync python3 tree python3-distutils
@@ -50,7 +51,7 @@ jobs:
       with:
         path: |
           openwrt/
-        key: cache_ar300nand_$(date +"%Y%m%d%H%M")
+        key: cache_ar300nand_${{ env.THIS_DATE }}
         restore-keys: |
           cache_fast_ar300_
           cache_fast_ar300
