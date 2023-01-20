@@ -50,7 +50,7 @@ jobs:
       with:
         path: |
           openwrt/
-        key: cache_ar300nand_${{ hashFiles('openwrt/.config') }}
+        key: cache_ar300nand_$(date +"%Y%m%d%H%M")
         restore-keys: |
           cache_fast_ar300_
           cache_fast_ar300
