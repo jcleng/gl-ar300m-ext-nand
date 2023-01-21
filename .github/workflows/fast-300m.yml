@@ -51,7 +51,7 @@ jobs:
       with:
         path: |
           openwrt/
-        key: cache_ar300nand_${{ env.THIS_DATE }}
+        key: cache_fast_ar300_${{ env.THIS_DATE }}
         restore-keys: |
           cache_fast_ar300_
           cache_fast_ar300
