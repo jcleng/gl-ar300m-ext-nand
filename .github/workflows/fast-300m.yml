@@ -51,10 +51,8 @@ jobs:
       with:
         path: |
           openwrt/
-        key: cache_fast_ar300_${{ env.THIS_DATE }}
-        restore-keys: |
-          cache_fast_ar300_
-          cache_fast_ar300
+        # 只能主键匹配才是cache-hit
+        key: cache_fast_ar300_202301211222
 
     - name: Clone source code
       if: steps.cache-primes.outputs.cache-hit != 'true'
