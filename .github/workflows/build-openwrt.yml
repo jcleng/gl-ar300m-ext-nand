@@ -109,7 +109,8 @@ jobs:
         make download -j8
         rm -rf build.log
         # | grep -i error
-        make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
+        #  2>&1 | tee build.log | grep -i error
+        make -j$(expr $(nproc) + 12) V=99
         cp build.log ./bin
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
