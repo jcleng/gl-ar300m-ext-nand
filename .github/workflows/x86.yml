@@ -76,7 +76,8 @@ jobs:
         cp ./.config openwrt/.config
         cd openwrt
         rm -rf ./bin ./build_dir ./tmp
-        make defconfig
+        # 是完整的文件不再 defconfig
+        # make defconfig
         cat ./.config
 
 
