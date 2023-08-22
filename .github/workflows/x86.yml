@@ -13,11 +13,6 @@ name: Build OpenWrt(x86)
 on:
   repository_dispatch:
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
 
 env:
   TZ: Asia/Shanghai
@@ -76,8 +71,8 @@ jobs:
         cp ./.config openwrt/.config
         cd openwrt
         rm -rf ./bin ./build_dir ./tmp
-        # 是完整的文件不再 defconfig
-        # make defconfig
+        
+        make defconfig
         cat ./.config
 
 
