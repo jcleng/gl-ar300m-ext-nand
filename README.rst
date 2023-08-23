@@ -42,6 +42,6 @@ ar300m使用: 下载官方的uboot-img镜像(使用nand,nor不去动)
 
   `openwrt官方下载 <https://downloads.openwrt.org/releases/22.03.3/targets/ath79/nand/>`_
 
-  gl官方[下载](https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/)
+  `gl官方下载 <https://docs.gl-inet.com/en/3/release_notes/gl-ar300m/>`_
 
-  [immortalwrt构建](https://downloads.immortalwrt.org/releases/21.02.3/targets/ath79/nand/)
+  `immortalwrt构建 <https://downloads.immortalwrt.org/releases/21.02.3/targets/ath79/nand/>`_
