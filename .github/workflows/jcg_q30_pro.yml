@@ -129,7 +129,7 @@ jobs:
       run: |
         touch release.txt
         cd openwrt/bin/targets/*/*
-        rm -rf ./packages
+        # rm -rf ./packages
         echo "RELEASE_PATH=$PWD" >> $GITHUB_ENV
 
     - name: pack bin dir
