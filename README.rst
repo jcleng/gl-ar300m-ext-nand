@@ -9,13 +9,13 @@ immortalwrt自用构建
 设备列表
 ======================
 
-===============  ===============
-型号              分支
-===============  ===============
-ignet ar300m     main
-x86              x86
-jcg q30 pro      jcg_q30_pro
-===============  ===============
+===============  =============== ===============
+型号              分支            构建状态
+===============  =============== ===============
+ignet ar300m     main            .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt/badge.svg
+x86              x86             .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt(x86)/badge.svg
+jcg q30 pro      jcg_q30_pro     .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt%20jcg_q30_pro/badge.svg
+===============  =============== ===============
 
 如何生成自己的.config配置文件
 ==============================
