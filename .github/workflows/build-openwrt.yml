@@ -143,11 +143,11 @@ jobs:
         tar -zcvf dl.tar.gz ./dl/
         mv dl.tar.gz ${{ env.RELEASE_PATH }}/
 
-    - name: Cloudupload
-      id: cloudupload
-      run: |
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer wss --no-progress ${{ env.RELEASE_PATH }}/bin_dir.tar.gz 2>&1 | tee release.txt
+    # - name: Cloudupload
+    #   id: cloudupload
+    #   run: |
+    #     curl -fsSL git.io/file-transfer | sh
+    #     ./transfer wss --no-progress ${{ env.RELEASE_PATH }}/bin_dir.tar.gz 2>&1 | tee release.txt
 
     - name: Release
       uses: softprops/action-gh-release@v1
