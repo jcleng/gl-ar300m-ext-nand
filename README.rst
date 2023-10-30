@@ -6,6 +6,9 @@ immortalwrt自用构建
 
 增加adguard home,openclash,docker支持
 
+.. image:: https://img1.imgtp.com/2023/10/30/J0d2RD7c.png
+  :width: 800px
+
 设备列表
 ======================
 
