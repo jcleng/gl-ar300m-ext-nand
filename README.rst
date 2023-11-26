@@ -15,7 +15,7 @@ immortalwrt自用构建
 ===============  =============== ======================================================================================================================== ===============
 型号              分支            构建状态                                                                                                                  推荐下载
 ===============  =============== ======================================================================================================================== ===============
-ignet ar300m     main            .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt/badge.svg                              `202310302054 <https://github.com/jcleng/gl-ar300m-ext-nand/releases/tag/OpenWrt_firmware_glinet_gl-ar300m-nand_202310302054>`_
+ignet ar300m     main            .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt/badge.svg                              `202311261836 openwrt-23.02 <https://github.com/jcleng/gl-ar300m-ext-nand/releases/tag/OpenWrt_firmware_glinet_gl-ar300m-nand_202311261836>`_ , `202310302054 openwrt-21.02 <https://github.com/jcleng/gl-ar300m-ext-nand/releases/tag/OpenWrt_firmware_glinet_gl-ar300m-nand_202310302054>`_
 x86              x86             .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt(x86)/badge.svg
 jcg q30 pro      jcg_q30_pro     .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt%20jcg_q30_pro/badge.svg
 ===============  =============== ======================================================================================================================== ===============
