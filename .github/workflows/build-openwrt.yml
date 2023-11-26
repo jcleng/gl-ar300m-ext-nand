@@ -24,6 +24,11 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@main
+      with:
+        # 指定分支
+        ref: 'main'
+        # 之前一直使用的是openwrt-21.02
+        # ref: 'openwrt-21.02'
 
     - name: Initialization environment
       env:
@@ -43,7 +48,7 @@ jobs:
       # working-directory: /workdir
       run: |
         pwd
-        git clone -b openwrt-21.02 --single-branch --depth=1 https://github.com/immortalwrt/immortalwrt openwrt
+        git clone -b openwrt-23.05 --single-branch --depth=1 https://github.com/immortalwrt/immortalwrt openwrt
         # ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         ls -l
     # 插件包,不要可用注释
@@ -102,7 +107,7 @@ jobs:
       run: |
         cd openwrt
         find ./ -name *gcc
-        make download -j8
+        make download -j8 V=99
         rm -rf build.log
         # | grep -i error
         make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
@@ -127,7 +132,7 @@ jobs:
       run: |
         touch release.txt
         cd openwrt/bin/targets/*/*
-        
+
         echo "RELEASE_PATH=$PWD" >> $GITHUB_ENV
 
     - name: pack bin dir
