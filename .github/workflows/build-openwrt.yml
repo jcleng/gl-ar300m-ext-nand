@@ -24,11 +24,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@main
-      with:
-        # 指定分支
-        # ref: 'main'
-        # 之前一直使用的是openwrt-21.02
-        ref: 'openwrt-21.02'
 
     - name: Initialization environment
       env:
