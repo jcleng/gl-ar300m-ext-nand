@@ -13,8 +13,8 @@ name: Build OpenWrt jcg_q30_pro
 on:
   repository_dispatch:
   workflow_dispatch:
-  schedule:
-    - cron:  '22 16 * * 2,4'
+  #schedule:
+  #  - cron:  '22 16 * * 2,4'
 env:
   TZ: Asia/Shanghai
 
