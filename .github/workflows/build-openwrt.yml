@@ -73,7 +73,7 @@ jobs:
         make defconfig
         cat ./.config
         # save source code
-        tar -zcf source.tar.gz ./
+        tar -zcf ../source.tar.gz ./
 
 
     # - name: Cache Hook
@@ -141,7 +141,7 @@ jobs:
         cd openwrt
         tar -zcvf bin_dir.tar.gz ./bin/
         mv bin_dir.tar.gz ${{ env.RELEASE_PATH }}/
-        mv source.tar.gz ${{ env.RELEASE_PATH }}/
+        mv ../source.tar.gz ${{ env.RELEASE_PATH }}/
         rm -rf ${{ env.RELEASE_PATH }}/packages
 
     - name: pack dl dir
