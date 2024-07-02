@@ -73,7 +73,7 @@ jobs:
         make defconfig
         cat ./.config
         # save source code
-        tar -zcvf source.tar.gz ./
+        tar -zcf source.tar.gz ./
 
 
     # - name: Cache Hook
