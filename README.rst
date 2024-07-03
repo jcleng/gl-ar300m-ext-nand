@@ -25,7 +25,7 @@ jcg q30 pro      jcg_q30_pro     .. image:: https://github.com/jcleng/gl-ar300m-
 
 .. code-block:: shell
 
-   # 使用 http://github.com/noonien/docker-openwrt-buildroot 的docker镜像进行配置(下载feeds插件要一致),然后运行进行配置TUI界面
+   # 使用 registry.cn-hangzhou.aliyuncs.com/jcleng/wrt-ubuntu:20.04 的docker镜像进行配置(下载feeds插件要一致),然后运行进行配置TUI界面
 
    # 保存之后用scripts/diffconfig.sh脚本进行导出刚刚配置的文件
    ./scripts/diffconfig.sh > min.config
