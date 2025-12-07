@@ -60,7 +60,7 @@ jobs:
     #     echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
 
     # easytier: 内核文件下载 https://github.com/EasyTier/EasyTier/releases/download/v2.4.5/easytier-linux-mips-v2.4.5.zip
-    # 推荐先启动easytier之后,再桥接(不保存之前配置),最后添加wifi热点
+    # 推荐先启动easytier之后,再桥接(勾选重置无线配置),最后添加wifi热点
     - name: Add easytier
       run: |
         git clone -b main https://github.com/EasyTier/luci-app-easytier
