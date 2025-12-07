@@ -59,6 +59,12 @@ jobs:
     #     sed -i "/helloworld/d" "feeds.conf.default"
     #     echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
 
+    # easytier
+    - name: Add easytier
+      run: |
+        git clone -b main https://github.com/EasyTier/luci-app-easytier
+        cp -ar ./luci-app-easytier/luci-app-easytier openwrt/package/
+
     - name: feeds init and download
       run: |
         cd openwrt
