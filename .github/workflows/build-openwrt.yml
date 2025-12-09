@@ -87,19 +87,15 @@ jobs:
         # save source code
         tar -zcf ../source.tar.gz ./
 
-
-    # - name: Cache Hook
-    #   uses: actions/cache@v3
-    #   with:
-    #     path: |
-    #       openwrt/bin
-    #       openwrt/build_dir
-    #       openwrt/staging_dir
-    #       openwrt/tmp
-    #     key: cache_ar300nand_${{ hashFiles('openwrt/.config') }}
-    #     restore-keys: |
-    #       cache_ar300nand_
-    #       cache_ar300nand
+      # 缓存加快编译 https://github.com/stupidloud/cachewrtbuild
+    - name: Cache
+      uses: stupidloud/cachewrtbuild@main
+      with:
+        ccache: 'true'
+        mixkey: 'mips_24kc'
+        # 是否清除缓存
+        clean: 'false'
+        prefix: ${{ github.workspace }}/openwrt
 
     - name: .config file bak
       run: |
@@ -123,7 +119,8 @@ jobs:
         find ./ -name *gcc
         rm -rf build.log
         # | grep -i error
-        make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
+        # make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
+        make -j$(($(nproc)+1)) V=99 2>&1 | tee build.log | grep -i error
         cp build.log ./bin
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
