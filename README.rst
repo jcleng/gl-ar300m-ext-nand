@@ -1,10 +1,10 @@
 ======================
-immortalwrt自用构建
+ImmortalWrt 25.12.2 自用精简构建（GL-AR300M-NAND）
 ======================
 
 `openwrt wiki howto build <https://openwrt.org/zh-cn/doc/howto/build>`_
 
-增加adguard home,openclash,docker支持
+基于 ImmortalWrt v25.12.2，精简常用插件，保留 USB 文件系统支持，LAN 192.168.8.1，包管理器 APK
 
 .. image:: https://img1.imgtp.com/2023/10/30/J0d2RD7c.png
   :width: 800px
@@ -15,7 +15,7 @@ immortalwrt自用构建
 ===============  =============== ======================================================================================================================== ===============
 型号              分支            构建状态                                                                                                                  推荐下载
 ===============  =============== ======================================================================================================================== ===============
-ignet ar300m     main            .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt/badge.svg                              `202311261836 openwrt-23.02 <https://github.com/jcleng/gl-ar300m-ext-nand/releases/tag/OpenWrt_firmware_glinet_gl-ar300m-nand_202311261836>`_ , `202310302054 openwrt-21.02 <https://github.com/jcleng/gl-ar300m-ext-nand/releases/tag/OpenWrt_firmware_glinet_gl-ar300m-nand_202310302054>`_
+ignet ar300m     main            .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt/badge.svg
 x86              x86             .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt(x86)/badge.svg
 jcg q30 pro      jcg_q30_pro     .. image:: https://github.com/jcleng/gl-ar300m-ext-nand/workflows/Build%20OpenWrt%20jcg_q30_pro/badge.svg
 ===============  =============== ======================================================================================================================== ===============

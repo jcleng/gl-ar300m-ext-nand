@@ -5,7 +5,7 @@
 # See /LICENSE for more information.
 #
 # https://github.com/P3TERX/Actions-OpenWrt
-# Description: Build OpenWrt using GitHub Actions
+# Description: Build ImmortalWrt 25.12 (v25.12.2) for GL.iNet GL-AR300M (NAND)
 #
 
 name: Build OpenWrt
@@ -15,161 +15,206 @@ on:
   workflow_dispatch:
   # schedule:
   #   - cron:  '22 16 * * 2,4'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   TZ: Asia/Shanghai
+  # 上游：ImmortalWrt 最新稳定版 tag（与软件源 / 镜像完全一致）
+  SOURCE_URL: https://github.com/immortalwrt/immortalwrt
+  SOURCE_BRANCH: v25.12.2
+  # easytier 固定版本，避免上游 main 变动导致构建结果不可复现
+  EASYTIER_TAG: v2.6.4
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
 
-    - name: Update package list and enable universe repository
+    # 释放 runner 磁盘：上一次构建失败的根因就是磁盘写满
+    - name: Free disk space
       run: |
-        sudo apt-get update
-        sudo add-apt-repository universe -y
+        echo "=== before ==="
+        df -h /
+        sudo rm -rf \
+          /usr/share/dotnet \
+          /usr/local/lib/android \
+          /usr/local/share/boost \
+          /opt/ghc \
+          /opt/hostedtoolcache/CodeQL \
+          /usr/local/share/chromium \
+          /usr/share/swift \
+          /usr/local/graalvm \
+          /usr/local/.ghcup \
+          /usr/local/julia* \
+          /usr/lib/jvm \
+          /usr/local/sqlpackage \
+          /usr/local/share/powershell \
+          /usr/local/share/vcpkg \
+          /opt/az \
+          /opt/microsoft \
+          /opt/google \
+          /opt/pipx \
+          /usr/share/miniconda \
+          /usr/share/az_* \
+          /usr/share/gradle* \
+          /usr/share/kotlin* \
+          /usr/share/sbt \
+          /usr/share/heroku \
+          /usr/share/mercurial \
+          /usr/share/ri \
+          || true
+        sudo apt-get -qq clean
+        sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*.deb
+        # Docker 镜像与旧内核（runner 上占几个 G）
+        sudo rm -rf /var/lib/docker /var/lib/containerd || true
+        echo "=== after ==="
+        df -h /
 
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        echo $(nproc)
+        echo "nproc: $(nproc)"
         free -h
-        sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install sudo time git-core subversion build-essential gcc-multilib libncurses5-dev zlib1g-dev gawk flex gettext wget unzip grep rsync python3 tree python3-distutils
+        sudo -E apt-get -qq install -y \
+          build-essential clang flex bison g++ gawk \
+          gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
+          python3 python3-setuptools rsync swig unzip zlib1g-dev file wget \
+          subversion time tree jq
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-        sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
 
     - name: Clone source code
-      # working-directory: /workdir
       run: |
-        pwd
-        git clone -b openwrt-23.05 --single-branch --depth=1 https://github.com/immortalwrt/immortalwrt openwrt
-        # ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
-        ls -l
-    # 插件包,不要可用注释
-    - name: feeds add kenzok8-package
-      run: |
+        git clone -b "$SOURCE_BRANCH" --single-branch --depth=1 "$SOURCE_URL" openwrt
         cd openwrt
-        sed -i '$a src-git kenzo https://github.com/kenzok8/openwrt-packages' feeds.conf.default
-        sed -i '$a src-git small https://github.com/kenzok8/small' feeds.conf.default
+        echo "SOURCE_REV=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        git log -1 --oneline
 
-    # - name: feeds add fw876/helloworld
-    #   run: |
-    #     cd openwrt
-    #     sed -i "/helloworld/d" "feeds.conf.default"
-    #     echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
-
-    # easytier: 内核文件下载 https://github.com/EasyTier/EasyTier/releases/download/v2.4.5/easytier-linux-mips-v2.4.5.zip
-    # 推荐先启动easytier之后,再桥接(勾选重置无线配置),最后添加wifi热点
+    # 官方 feeds 已包含全部所需插件，不再追加 kenzok8（master-only，25.12 上不可用）
     - name: Add easytier
       run: |
-        git clone -b main https://github.com/EasyTier/luci-app-easytier
-        cp -ar ./luci-app-easytier/luci-app-easytier openwrt/package/
+        git clone -b "$EASYTIER_TAG" --depth=1 https://github.com/EasyTier/luci-app-easytier easytier-src
+        # Makefile 里是 -include $(dir $(lastword $(MAKEFILE_LIST)))../version.mk
+        # 所以 version.mk 必须位于 openwrt/package/version.mk
+        cp -f  ./easytier-src/version.mk            openwrt/package/version.mk
+        cp -ar ./easytier-src/easytier              openwrt/package/
+        cp -ar ./easytier-src/luci-app-easytier     openwrt/package/
+        ls -l openwrt/package/version.mk
+        ls -d  openwrt/package/easytier openwrt/package/luci-app-easytier
 
-    - name: feeds init and download
+    - name: feeds update and install
       run: |
         cd openwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: .config file init
+    - name: Load .config
       run: |
         cp ./.config openwrt/.config
         cd openwrt
         rm -rf ./bin ./build_dir ./tmp ./staging_dir
         make defconfig
-        cat ./.config
-        # save source code
-        tar -zcf ../source.tar.gz ./
+        echo "=== 生效的 target / device ==="
+        grep -E '^CONFIG_TARGET_(BOARD|SUBTARGET|PROFILE)' .config || true
 
-      # 缓存加快编译 https://github.com/stupidloud/cachewrtbuild
-    - name: Cache
-      uses: stupidloud/cachewrtbuild@main
-      with:
-        ccache: 'true'
-        mixkey: 'mips_24kc'
-        # 是否清除缓存
-        clean: 'false'
-        prefix: ${{ github.workspace }}/openwrt
-
-    - name: .config file bak
-      run: |
-        mkdir ./bin
-        cp ./.config ./bin/config.bak
-
-    - name: Change IP to..192.168.8.1
+    # make defconfig 会静默丢弃找不到的包，这里显式校验，避免"构建成功但插件缺失"
+    - name: Verify required packages are enabled
       run: |
         cd openwrt
-        sed -i "s/192.168.1.1/192.168.8.1/" package/base-files/files/bin/config_generate
-        cat package/base-files/files/bin/config_generate|grep lan\)
+        missing=0
+        for sym in \
+          luci-app-passwall luci-app-easytier luci-app-zerotier luci-app-ksmbd \
+          luci-app-diskman luci-app-ttyd luci-app-ddns luci-app-upnp \
+          luci-app-nlbwmon luci-app-sqm luci-app-aria2 luci-app-wol \
+          luci-app-autoreboot luci-app-cpulimit luci-app-commands \
+          luci-theme-argon luci-app-argon-config luci-proto-wireguard \
+          kmod-fs-ext4 kmod-fs-vfat kmod-fs-exfat kmod-fs-ntfs3 kmod-usb-storage kmod-usb-ohci kmod-usb-uhci \
+          ksmbd-server ; do
+          if grep -qE "^CONFIG_PACKAGE_${sym}=[ym]$" .config; then
+            echo "  OK   ${sym}"
+          else
+            echo "  MISS ${sym}"
+            missing=1
+          fi
+        done
+        if [ "$missing" != "0" ]; then
+          echo "::error::缺少必需的软件包，请检查 .config 与 feeds"
+          exit 1
+        fi
+
+    - name: Set LAN IP to 192.168.8.1
+      run: |
+        cd openwrt
+        sed -i "s/192\.168\.1\.1/192.168.8.1/" package/base-files/files/bin/config_generate
+        grep -n 'lan) ipad' package/base-files/files/bin/config_generate
 
     - name: make download
       run: |
         cd openwrt
-        make download -j8 V=99
+        # make download 会校验每个文件的 hash，缺包/校验失败立即退出
+        make -j$(nproc) download V=s
 
     - name: make
       run: |
         cd openwrt
-        find ./ -name *gcc
-        rm -rf build.log
-        # | grep -i error
-        # make -j$(expr $(nproc) + 12) V=99 2>&1 | tee build.log | grep -i error
-        make -j$(($(nproc)+1)) V=99 2>&1 | tee build.log | grep -i error
-        cp build.log ./bin
+        # pipefail：make 失败时能正确传递退出码
+        set -o pipefail
+        make -j$(($(nproc)+1)) V=s 2>&1 | tee build.log
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+        echo "SOURCE_REV=$SOURCE_REV" >> $GITHUB_ENV
 
-    - name: FIRMWARE set path
+    - name: Upload build log (always)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log${{ env.DEVICE_NAME }}
+        path: openwrt/build.log
+        if-no-files-found: ignore
+        retention-days: 14
+
+    - name: Collect firmware
       id: organize
       run: |
-        cd openwrt/bin/
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        cd openwrt/bin/targets/*/*
+        # packages/ 里是编译出的全部 apk，上百 MB，发布时不需要
+        rm -rf packages
+        echo "RELEASE_PATH=$PWD" >> $GITHUB_ENV
+        ls -lh
 
     - name: Artifacts File Save
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
-
-    - name: Release set path
-      run: |
-        touch release.txt
-        cd openwrt/bin/targets/*/*
-
-        echo "RELEASE_PATH=$PWD" >> $GITHUB_ENV
-
-    - name: pack bin dir
-      run: |
-        cd openwrt
-        tar -zcvf bin_dir.tar.gz ./bin/
-        mv bin_dir.tar.gz ${{ env.RELEASE_PATH }}/
-        mv ../source.tar.gz ${{ env.RELEASE_PATH }}/
-        rm -rf ${{ env.RELEASE_PATH }}/packages
-
-    - name: pack dl dir
-      run: |
-        cd openwrt
-        tar -zcvf dl.tar.gz ./dl/
-        mv dl.tar.gz ${{ env.RELEASE_PATH }}/
-
-    # - name: Cloudupload
-    #   id: cloudupload
-    #   run: |
-    #     curl -fsSL git.io/file-transfer | sh
-    #     ./transfer wss --no-progress ${{ env.RELEASE_PATH }}/bin_dir.tar.gz 2>&1 | tee release.txt
+        name: ImmortalWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.RELEASE_PATH }}
+        if-no-files-found: error
+        retention-days: 30
 
     - name: Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        body_path: release.txt
+        name: ImmortalWrt 25.12.2 ${{ env.DEVICE_NAME }} ${{ env.FILE_DATE }}
+        body: |
+          ImmortalWrt 25.12.2 (${{ env.SOURCE_BRANCH }} @ ${{ env.SOURCE_REV }}) for GL.iNet GL-AR300M (NAND)
+
+          - LAN: 192.168.8.1
+          - 包管理器: APK (`apk add`)
+          - 提供系统升级文件（sysupgrade.bin）和厂商回复镜像（factory.img）
         files: ${{ env.RELEASE_PATH }}/*
+        fail_on_unmatched_files: true
