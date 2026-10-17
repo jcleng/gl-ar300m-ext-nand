@@ -160,6 +160,24 @@ jobs:
         sed -i "s/192\.168\.1\.1/192.168.8.1/" package/base-files/files/bin/config_generate
         grep -n 'lan) ipad' package/base-files/files/bin/config_generate
 
+    # 把仓库里的 files/ 覆盖层塞进镜像（OpenWrt 只认 $(TOPDIR)/files）
+    # 内容：wifi-mgmt-guard —— 保证上游/中继链路断开后，WiFi 管理热点仍在
+    - name: Install files/ overlay (wifi-mgmt-guard)
+      run: |
+        cd openwrt
+        rm -rf ./files
+        cp -a ../files ./files
+        # git 会丢掉可执行位，这里显式补回来
+        chmod +x files/etc/init.d/* files/etc/uci-defaults/*
+        ls -l files/etc/init.d files/etc/uci-defaults
+        # 校验脚本语法（busybox ash 兼容，但本地 sh 也能查出明显语法错）
+        sh -n files/etc/init.d/wifi-mgmt-guard
+        sh -n files/etc/uci-defaults/99-wifi-mgmt-guard
+        # 校验 uci-defaults / init 脚本可被识别
+        test -x files/etc/init.d/wifi-mgmt-guard
+        test -x files/etc/uci-defaults/99-wifi-mgmt-guard
+        echo '=== overlay OK ==='
+
     - name: make download
       run: |
         cd openwrt

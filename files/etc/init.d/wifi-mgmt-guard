@@ -1,0 +1,212 @@
+#!/bin/sh /etc/rc.common
+#
+# wifi-mgmt-guard — 保证「上游/中继链路断开时，本机仍可被管理」
+#
+# 背景（AR300M 这类单 radio 设备做中继时的经典坑）：
+#   LuCI 的「中继模式」/relayd/WDS 会把 AP 接口挂到 wwan 上，管理地址由上游 DHCP 下发。
+#   一旦上游路由器离线：
+#     - AP 其实还在广播，但没人发地址，客户端拿不到 IP；
+#     - 上游网段不可达，LuCI 也就打不开  → 连得上 WiFi 却失联。
+#
+# 本脚本在每次开机时做幂等兜底（只补缺失项，不覆盖用户已有配置）：
+#   1. /etc/config/wireless 没有 radio 时用 `wifi config` 生成
+#   2. 确保所有 radio 未被 disabled
+#   3. 确保 LAN 是静态地址（默认 192.168.8.1），不依赖上游
+#   4. 确保 LAN 上有 DHCP 服务（否则连上也拿不到地址）
+#   5. 确保存在一个绑定 lan 的 AP 接口（管理热点），没有就补一个
+#   6. 确保 uhttpd 开机自启
+#
+# 手动执行：/etc/init.d/wifi-mgmt-guard start|status
+
+START=99
+STOP=10
+
+EXTRA_COMMANDS="status"
+EXTRA_HELP="	status	查看管理面兜底状态"
+
+. /lib/functions.sh
+
+MGMT_SECTION='mgmt'
+MGMT_SSID='AR300M-AP'
+MGMT_KEY='12345678'          # 请首次登录后改成自己的密码
+DEFAULT_LAN_IP='192.168.8.1'
+DEFAULT_LAN_MASK='255.255.255.0'
+
+changed=0
+first_radio=''
+has_ap_lan=0
+
+log() { logger -t wifi-mgmt-guard "$*"; echo "wifi-mgmt-guard: $*"; }
+
+# ---------- 1. 无线配置存在性 ----------
+ensure_wireless_config() {
+	if ! grep -qs '^config wifi-device' /etc/config/wireless; then
+		log "没有 wifi-device 配置，尝试 'wifi config' 探测"
+		wifi config >/dev/null 2>&1
+		changed=1
+	fi
+}
+
+# ---------- 2. radio 是否启用 ----------
+handle_radio() {
+	local cfg="$1" disabled
+	[ -n "$first_radio" ] || first_radio="$cfg"
+	config_get disabled "$cfg" disabled
+	if [ "$disabled" = "1" ]; then
+		uci set wireless.$cfg.disabled='0'
+		changed=1
+		log "启用被禁用的 radio: $cfg"
+	fi
+}
+
+# ---------- 3. 是否已有绑定 lan 的 AP ----------
+handle_iface() {
+	local cfg="$1" mode net
+	config_get mode "$cfg" mode
+	[ "$mode" = "ap" ] || return 0
+	config_get net "$cfg" network
+	[ "$net" = "lan" ] && has_ap_lan=1
+	return 0
+}
+
+ensure_mgmt_ap() {
+	[ "$has_ap_lan" = "1" ] && return 0
+	[ -n "$first_radio" ] || { log "未发现 radio，跳过管理热点创建"; return 0; }
+
+	local sec="$MGMT_SECTION"
+	if uci -q get wireless.$sec >/dev/null && [ "$(uci -q get wireless.$sec.mode)" != "ap" ]; then
+		sec='mgmt_ap'
+	fi
+
+	uci -q get wireless.$sec >/dev/null || uci set wireless.$sec='wifi-iface'
+	uci set wireless.$sec.device="$first_radio"
+	uci set wireless.$sec.mode='ap'
+	uci set wireless.$sec.network='lan'
+	uci set wireless.$sec.ssid="$MGMT_SSID"
+	uci set wireless.$sec.encryption='psk2'
+	uci set wireless.$sec.key="$MGMT_KEY"
+	uci set wireless.$sec.disabled='0'
+	changed=1
+	log "已补建管理热点 '$MGMT_SSID'（device=$first_radio, network=lan）"
+}
+
+# ---------- 4. LAN 必须是独立静态地址 ----------
+ensure_lan() {
+	local proto ipaddr
+
+	config_load network
+	config_get proto lan proto
+	config_get ipaddr lan ipaddr
+
+	if ! uci -q get network.lan >/dev/null; then
+		uci set network.lan='interface'
+		uci set network.lan.device='br-lan'
+		uci set network.lan.proto='static'
+		uci set network.lan.ipaddr="$DEFAULT_LAN_IP"
+		uci set network.lan.netmask="$DEFAULT_LAN_MASK"
+		changed=1
+		log "已重建缺失的 lan 接口（$DEFAULT_LAN_IP）"
+		return 0
+	fi
+
+	if [ "$proto" != "static" ]; then
+		uci set network.lan.proto='static'
+		[ -n "$ipaddr" ] || uci set network.lan.ipaddr="$DEFAULT_LAN_IP"
+		uci -q get network.lan.netmask >/dev/null || uci set network.lan.netmask="$DEFAULT_LAN_MASK"
+		uci -q delete network.lan.peerdns >/dev/null 2>&1
+		uci -q delete network.lan.reqdns >/dev/null 2>&1
+		changed=1
+		log "lan 改为静态地址（原 proto='$proto'），管理面不再依赖上游 DHCP"
+	fi
+}
+
+# ---------- 5. LAN 上要有 DHCP 服务 ----------
+ensure_dhcp() {
+	local iface ignore
+
+	config_load dhcp
+	config_get iface lan interface
+	config_get ignore lan ignore
+
+	if [ "$iface" != "lan" ]; then
+		uci set dhcp.lan='dhcp'
+		uci set dhcp.lan.interface='lan'
+		uci set dhcp.lan.start='100'
+		uci set dhcp.lan.limit='150'
+		uci set dhcp.lan.leasetime='12h'
+		changed=1
+		log "已为 lan 补建 DHCP 池"
+	fi
+
+	if [ "$ignore" = "1" ]; then
+		uci delete dhcp.lan.ignore
+		changed=1
+		log "已移除 dhcp.lan.ignore（上游离线也要能拿到地址）"
+	fi
+}
+
+# ---------- 6. 管理服务自启 ----------
+ensure_services() {
+	local svc
+	for svc in uhttpd dnsmasq; do
+		[ -x /etc/init.d/$svc ] || continue
+		if ! /etc/init.d/$svc enabled; then
+			/etc/init.d/$svc enable
+			log "已设置 $svc 开机自启"
+		fi
+	done
+}
+
+start() {
+	ensure_wireless_config
+
+	if [ -f /etc/config/wireless ]; then
+		config_load wireless
+		config_foreach handle_radio wifi-device
+		config_foreach handle_iface wifi-iface
+	fi
+
+	ensure_mgmt_ap
+	ensure_lan
+	ensure_dhcp
+	ensure_services
+
+	if [ "$changed" = "1" ]; then
+		uci commit wireless 2>/dev/null
+		uci commit network 2>/dev/null
+		uci commit dhcp 2>/dev/null
+		log "配置已修正，正在重载无线/DHCP"
+		( sleep 3; wifi reload >/dev/null 2>&1; /etc/init.d/dnsmasq reload >/dev/null 2>&1 ) &
+	else
+		log "检查通过，无需修改"
+	fi
+}
+
+boot() { start "$@"; }
+
+status() {
+	local radio iface net mode ssid
+
+	echo "== radio =="
+	for radio in $(uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-device$/\1/p'); do
+		echo "  $radio: disabled=$(uci -q get wireless.$radio.disabled) channel=$(uci -q get wireless.$radio.channel)"
+	done
+
+	echo "== wifi-iface =="
+	for iface in $(uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-iface$/\1/p'); do
+		mode=$(uci -q get wireless.$iface.mode)
+		net=$(uci -q get wireless.$iface.network)
+		ssid=$(uci -q get wireless.$iface.ssid)
+		case "$mode:$net" in
+			ap:lan) echo "  $iface: AP ssid=$ssid network=lan  <- 管理热点 OK" ;;
+			ap:*)   echo "  $iface: AP ssid=$ssid network=$net  <- 非管理面，上游离线会失联" ;;
+			sta:*)  echo "  $iface: STA ssid=$ssid network=$net" ;;
+			*)      echo "  $iface: mode=$mode network=$net" ;;
+		esac
+	done
+
+	echo "== 管理面 =="
+	echo "  lan: proto=$(uci -q get network.lan.proto) ip=$(uci -q get network.lan.ipaddr)"
+	echo "  dhcp.lan: interface=$(uci -q get dhcp.lan.interface) ignore=$(uci -q get dhcp.lan.ignore)"
+	echo "  上游离线时可用地址: http://$(uci -q get network.lan.ipaddr)"
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# 首次启动（以及每次 sysupgrade 后）确保管理面兜底脚本被启用并立即跑一次。
+# 此时无线模块可能还没加载，脚本会自行跳过无线部分，下一次开机由 rc.d 再兜底一次。
+
+[ -x /etc/init.d/wifi-mgmt-guard ] || exit 0
+
+/etc/init.d/wifi-mgmt-guard enable >/dev/null 2>&1
+/etc/init.d/wifi-mgmt-guard boot >/dev/null 2>&1
+
+exit 0
