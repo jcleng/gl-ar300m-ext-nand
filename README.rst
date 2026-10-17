@@ -6,7 +6,7 @@ ImmortalWrt 25.12.2 自用精简构建（GL-AR300M-NAND）
 
 基于 ImmortalWrt v25.12.2，精简常用插件，保留 USB 文件系统支持，LAN 192.168.8.1，包管理器 APK
 
-.. image:: https://img1.imgtp.com/2023/10/30/J0d2RD7c.png
+.. image:: img/20261017_190443.png
   :width: 800px
 
 设备列表

@@ -1,28 +1,37 @@
 #!/bin/sh /etc/rc.common
 #
-# wifi-mgmt-guard — 保证「上游/中继链路断开时，本机仍可被管理」
+# wifi-mgmt-guard — 上游/中继链路断开时，本机仍可被管理
 #
 # 背景（AR300M 这类单 radio 设备做中继时的经典坑）：
-#   LuCI 的「中继模式」/relayd/WDS 会把 AP 接口挂到 wwan 上，管理地址由上游 DHCP 下发。
-#   一旦上游路由器离线：
-#     - AP 其实还在广播，但没人发地址，客户端拿不到 IP；
-#     - 上游网段不可达，LuCI 也就打不开  → 连得上 WiFi 却失联。
+#   1) 中继时 AP 与 STA 共用同一个 2.4G radio，二者必须在同一信道。
+#      STA 连上上游后，radio 被锁定到上游信道，本地 AP 实际在上游信道广播；
+#      一旦上游离线、STA 断开，radio 失去信道锚点，AP 信标常常起不来
+#      → 连得上 WiFi 却失联，甚至管理热点也一起消失。
+#   2) LuCI 中继 / relayd / WDS 会把 AP 挂到 wwan，管理地址由上游 DHCP 下发，
+#      上游一挂就更没救了。
 #
-# 本脚本在每次开机时做幂等兜底（只补缺失项，不覆盖用户已有配置）：
-#   1. /etc/config/wireless 没有 radio 时用 `wifi config` 生成
-#   2. 确保所有 radio 未被 disabled
-#   3. 确保 LAN 是静态地址（默认 192.168.8.1），不依赖上游
-#   4. 确保 LAN 上有 DHCP 服务（否则连上也拿不到地址）
-#   5. 确保存在一个绑定 lan 的 AP 接口（管理热点），没有就补一个
-#   6. 确保 uhttpd 开机自启
+# 本脚本做两件事：
+#   A) 开机幂等兜底（只补缺失项，不覆盖用户已有配置）：
+#        - 没有 radio 时用 `wifi config` 生成
+#        - 确保所有 radio 未被 disabled
+#        - 确保 LAN 是独立静态地址（默认 192.168.8.1），不依赖上游
+#        - 确保 LAN 上有 DHCP 服务
+#        - 确保存在一个绑定 lan、名为 AR300M-AP 的管理热点（没有就补）
+#        - 确保 uhttpd / dnsmasq 开机自启
+#   B) 常驻看门狗（procd 托管）：
+#        检测到上游（wwan）离线超过阈值后，禁用 STA，让 AP 独占固定信道
+#        （管理态），保证随时能连上 192.168.8.1 管理本机；上游恢复可见后
+#        再自动重新启用 STA 恢复中继。
 #
-# 手动执行：/etc/init.d/wifi-mgmt-guard start|status
+# 手动执行：/etc/init.d/wifi-mgmt-guard status|watchdog
 
+USE_PROCD=1
 START=99
 STOP=10
 
-EXTRA_COMMANDS="status"
-EXTRA_HELP="	status	查看管理面兜底状态"
+EXTRA_COMMANDS="status watchdog"
+EXTRA_HELP="	status	查看管理面兜底状态
+	watchdog	立即执行一次看门狗检查（调试用）"
 
 . /lib/functions.sh
 
@@ -32,9 +41,14 @@ MGMT_KEY='12345678'          # 请首次登录后改成自己的密码
 DEFAULT_LAN_IP='192.168.8.1'
 DEFAULT_LAN_MASK='255.255.255.0'
 
+WATCHDOG_INTERVAL=15         # 看门狗轮询间隔（秒）
+DOWN_THRESHOLD=4             # 连续 N 次检测上游离线才转入管理态（约 N*INTERVAL 秒）
+STATE_FILE='/var/run/wifi-mgmt-guard.mode'
+DOWN_CNT='/var/run/wifi-mgmt-guard.down'
+
 changed=0
 first_radio=''
-has_ap_lan=0
+has_mgmt_ap=0
 
 log() { logger -t wifi-mgmt-guard "$*"; echo "wifi-mgmt-guard: $*"; }
 
@@ -59,22 +73,25 @@ handle_radio() {
 	fi
 }
 
-# ---------- 3. 是否已有绑定 lan 的 AP ----------
+# ---------- 3. 是否已有名为 MGMT_SSID 的 lan 管理 AP ----------
 handle_iface() {
-	local cfg="$1" mode net
+	local cfg="$1" mode net ssid
 	config_get mode "$cfg" mode
 	[ "$mode" = "ap" ] || return 0
 	config_get net "$cfg" network
-	[ "$net" = "lan" ] && has_ap_lan=1
+	config_get ssid "$cfg" ssid
+	[ "$net" = "lan" ] && [ "$ssid" = "$MGMT_SSID" ] && has_mgmt_ap=1
 	return 0
 }
 
+# 确保存在名为 MGMT_SSID、绑定 lan 的管理热点（按 SSID 判断，
+# 不被 ImmortalWrt 等其他 lan AP 误导）。
 ensure_mgmt_ap() {
-	[ "$has_ap_lan" = "1" ] && return 0
+	[ "$has_mgmt_ap" = "1" ] && return 0
 	[ -n "$first_radio" ] || { log "未发现 radio，跳过管理热点创建"; return 0; }
 
 	local sec="$MGMT_SECTION"
-	if uci -q get wireless.$sec >/dev/null && [ "$(uci -q get wireless.$sec.mode)" != "ap" ]; then
+	if uci -q get wireless.$sec >/dev/null && [ "$(uci -q get wireless.$sec.mode 2>/dev/null)" != "ap" ]; then
 		sec='mgmt_ap'
 	fi
 
@@ -157,7 +174,8 @@ ensure_services() {
 	done
 }
 
-start() {
+# ---------- 开机幂等兜底（只跑一次） ----------
+do_start_fixes() {
 	ensure_wireless_config
 
 	if [ -f /etc/config/wireless ]; then
@@ -182,14 +200,120 @@ start() {
 	fi
 }
 
-boot() { start "$@"; }
+# ================= 看门狗 =================
+# 返回绑定 wwan 的 STA 配置节名（没有则空）
+find_sta_cfg() {
+	uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-iface$/\1/p' | while read s; do
+		[ "$(uci -q get wireless.$s.mode 2>/dev/null)" = "sta" ] || continue
+		[ "$(uci -q get wireless.$s.network 2>/dev/null)" = "wwan" ] && { echo "$s"; break; }
+	done
+}
 
+# 上游（wwan）是否在线
+wwan_up() {
+	ubus call network.interface.wwan status 2>/dev/null | grep -q '"up": *true'
+}
+
+# 状态机：
+#   normal: 上游在线则计数清零；离线累计 DOWN_THRESHOLD 次 → 禁用 STA 进入 mgmt
+#   mgmt  : STA 禁用时先启用它做一次真实关联探测；若关联成功(wwan up)→ 回 normal；
+#           STA 已启用但仍在 DOWN_THRESHOLD 次内未连上 → 重新禁用，保住 AP 信道覆盖
+#           如此循环，直到上游真正恢复。
+watchdog_once() {
+	local sta_cfg upstream_ssid sta_disabled mode cnt
+
+	sta_cfg=$(find_sta_cfg)
+	[ -n "$sta_cfg" ] || return 0          # 没有 STA，无需管理态切换
+
+	upstream_ssid=$(uci -q get wireless.$sta_cfg.ssid 2>/dev/null)
+	sta_disabled=$(uci -q get wireless.$sta_cfg.disabled 2>/dev/null); sta_disabled=${sta_disabled:-0}
+	mode=$(cat "$STATE_FILE" 2>/dev/null || echo normal)
+	cnt=$(cat "$DOWN_CNT" 2>/dev/null || echo 0)
+
+	if wwan_up; then
+		if [ "$mode" = "mgmt" ]; then
+			echo normal > "$STATE_FILE"
+			log "上游 '$upstream_ssid' 已恢复，退出管理态"
+		fi
+		: > "$DOWN_CNT"
+		return 0
+	fi
+
+	if [ "$mode" = "normal" ]; then
+		[ "$sta_disabled" = "1" ] && return 0   # 用户手动禁用了 STA，不干预
+		cnt=$((cnt+1)); echo "$cnt" > "$DOWN_CNT"
+		if [ "$cnt" -ge "$DOWN_THRESHOLD" ]; then
+			uci set wireless.$sta_cfg.disabled='1'
+			uci commit wireless
+			wifi reload >/dev/null 2>&1
+			echo mgmt > "$STATE_FILE"
+			: > "$DOWN_CNT"
+			log "上游 '$upstream_ssid' 离线超阈值，转入管理态（禁用 STA，$MGMT_SSID 独占信道）"
+		fi
+		return 0
+	fi
+
+	# ---- mgmt 态 ----
+	if [ "$sta_disabled" = "1" ]; then
+		# 禁用中：启用 STA 做一次真实关联探测
+		uci set wireless.$sta_cfg.disabled='0'
+		uci commit wireless
+		wifi reload >/dev/null 2>&1
+		echo 0 > "$DOWN_CNT"
+		return 0
+	fi
+	# STA 已启用但 wwan 仍没起来：累计，超时则重新禁用，保住 AP 覆盖
+	cnt=$((cnt+1)); echo "$cnt" > "$DOWN_CNT"
+	if [ "$cnt" -ge "$DOWN_THRESHOLD" ]; then
+		uci set wireless.$sta_cfg.disabled='1'
+		uci commit wireless
+		wifi reload >/dev/null 2>&1
+		echo 0 > "$DOWN_CNT"
+		log "探测 '$upstream_ssid' 暂未恢复，禁用 STA 保持管理信道"
+	fi
+}
+
+# 周期性确保管理 AP 存在（兜住开机早期无线未就绪、或 AP 被误删）
+ensure_mgmt_ap_runtime() {
+	local sec ssid
+	for sec in $(uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-iface$/\1/p'); do
+		[ "$(uci -q get wireless.$sec.mode 2>/dev/null)" = "ap" ] || continue
+		[ "$(uci -q get wireless.$sec.network 2>/dev/null)" = "lan" ] || continue
+		ssid=$(uci -q get wireless.$sec.ssid 2>/dev/null)
+		[ "$ssid" = "$MGMT_SSID" ] && return 0
+	done
+	first_radio=$(uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-device$/\1/p' | head -1)
+	[ -n "$first_radio" ] || return 0
+	ensure_mgmt_ap
+	uci commit wireless
+	wifi reload >/dev/null 2>&1
+	log "运行时补建管理热点 '$MGMT_SSID'"
+}
+
+watchdog() {
+	ensure_mgmt_ap_runtime
+	watchdog_once
+}
+
+# ================= procd 服务 =================
+start_service() {
+	do_start_fixes
+	procd_open_instance "watchdog"
+	procd_set_param command /bin/sh -c "while true; do $initscript watchdog; sleep ${WATCHDOG_INTERVAL}; done"
+	procd_set_param respawn 0 30 0
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}
+
+# ================= 状态查询 =================
 status() {
-	local radio iface net mode ssid
+	local radio iface net mode ssid op_chan
 
 	echo "== radio =="
 	for radio in $(uci -q show wireless | sed -n 's/^wireless\.\([^.]*\)=wifi-device$/\1/p'); do
-		echo "  $radio: disabled=$(uci -q get wireless.$radio.disabled) channel=$(uci -q get wireless.$radio.channel)"
+		op_chan=$(iwinfo $(ls /sys/class/net 2>/dev/null | grep -E '^wlan' | head -1) info 2>/dev/null | sed -n 's/.*Channel:\s*\([0-9]*\).*/\1/p')
+		echo "  $radio: disabled=$(uci -q get wireless.$radio.disabled) channel=$(uci -q get wireless.$radio.channel) 实际信道=${op_chan:-?}"
 	done
 
 	echo "== wifi-iface =="
@@ -198,9 +322,9 @@ status() {
 		net=$(uci -q get wireless.$iface.network)
 		ssid=$(uci -q get wireless.$iface.ssid)
 		case "$mode:$net" in
-			ap:lan) echo "  $iface: AP ssid=$ssid network=lan  <- 管理热点 OK" ;;
-			ap:*)   echo "  $iface: AP ssid=$ssid network=$net  <- 非管理面，上游离线会失联" ;;
-			sta:*)  echo "  $iface: STA ssid=$ssid network=$net" ;;
+			ap:lan) echo "  $iface: AP ssid=$ssid network=lan  <- 管理热点" ;;
+			ap:*)   echo "  $iface: AP ssid=$ssid network=$net  <- 非管理面" ;;
+			sta:*)  echo "  $iface: STA ssid=$ssid network=$net disabled=$(uci -q get wireless.$iface.disabled)" ;;
 			*)      echo "  $iface: mode=$mode network=$net" ;;
 		esac
 	done
@@ -209,4 +333,8 @@ status() {
 	echo "  lan: proto=$(uci -q get network.lan.proto) ip=$(uci -q get network.lan.ipaddr)"
 	echo "  dhcp.lan: interface=$(uci -q get dhcp.lan.interface) ignore=$(uci -q get dhcp.lan.ignore)"
 	echo "  上游离线时可用地址: http://$(uci -q get network.lan.ipaddr)"
+
+	echo "== 看门狗 =="
+	echo "  当前模式: $(cat "$STATE_FILE" 2>/dev/null || echo normal)  上游离线计数: $(cat "$DOWN_CNT" 2>/dev/null || 0)/$DOWN_THRESHOLD"
+	echo "  wwan 状态: $(wwan_up && echo UP || echo DOWN)"
 }
