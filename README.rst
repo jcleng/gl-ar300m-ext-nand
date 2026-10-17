@@ -124,3 +124,22 @@ AR300M 只有一个 radio，做中继（客户端模式）时 AP 和 STA 只能�
 
   1. 用手机/电脑连 ``AR300M-AP`` 这个热点，或者用网线接 LAN 口；
   2. 浏览器访问 ``http://192.168.8.1`` 即可正常打开 LuCI 管理。
+
+命令行基础使用,修改热点名称等：
+
+.. code-block:: shell
+
+   cat /etc/config/wireless
+   # 修改对应默认的信道
+   uci set wireless.default_radio0.ssid="300y"
+   uci set wireless.default_radio0.encryption="psk2"
+   uci set wireless.default_radio0.key="goodlifexxx"
+   uci set wireless.mgmt.key="goodlifexxx"
+   # 查看变更
+   uci changes
+   # 提交保存
+   uci commit wireless
+   # 重启网络生效
+   /etc/init.d/network restart
+   # 查看日志
+   logread |grep wifi-mgmt-guard
