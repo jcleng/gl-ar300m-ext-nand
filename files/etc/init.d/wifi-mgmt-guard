@@ -29,8 +29,11 @@ USE_PROCD=1
 START=99
 STOP=10
 
-EXTRA_COMMANDS="status watchdog"
-EXTRA_HELP="	status	查看管理面兜底状态
+# 注意：USE_PROCD=1 下 rc.common 自带 status 命令，不要再在 EXTRA_COMMANDS 里
+# 重复定义，否则会出现两个 status。管理面查询挂在 status_service 钩子上，
+# 另外单独提供 show 命令便于调试。
+EXTRA_COMMANDS="show watchdog"
+EXTRA_HELP="	show	查看管理面兜底状态
 	watchdog	立即执行一次看门狗检查（调试用）"
 
 . /lib/functions.sh
@@ -41,10 +44,13 @@ MGMT_KEY='12345678'          # 请首次登录后改成自己的密码
 DEFAULT_LAN_IP='192.168.8.1'
 DEFAULT_LAN_MASK='255.255.255.0'
 
-WATCHDOG_INTERVAL=15         # 看门狗轮询间隔（秒）
-DOWN_THRESHOLD=4             # 连续 N 次检测上游离线才转入管理态（约 N*INTERVAL 秒）
+WATCHDOG_INTERVAL=30         # 看门狗轮询间隔（秒）
+DOWN_THRESHOLD=3             # 连续 N 次检测上游离线才转入管理态（约 N*INTERVAL 秒）
+PROBE_INTERVAL=60            # 管理态下两次上游可见性扫描的最小间隔（秒），避免频繁扫描
+PROBE_WINDOW=20              # 临时启用 STA 后等待关联的最大秒数
 STATE_FILE='/var/run/wifi-mgmt-guard.mode'
 DOWN_CNT='/var/run/wifi-mgmt-guard.down'
+SCAN_TS='/var/run/wifi-mgmt-guard.scan'
 
 changed=0
 first_radio=''
@@ -214,11 +220,30 @@ wwan_up() {
 	ubus call network.interface.wwan status 2>/dev/null | grep -q '"up": *true'
 }
 
+# 被动扫描：上游 SSID 在当前 radio 是否可见（不依赖 STA 是否启用/关联）
+scan_for_ssid() {
+	local ssid="$1" ifc
+	for ifc in $(ls /sys/class/net 2>/dev/null | grep -E '^wlan'); do
+		iwinfo "$ifc" scan 2>/dev/null | grep -qi "ESSID:.*$ssid" && return 0
+	done
+	return 1
+}
+
+# 节流：距上次扫描是否已超过 PROBE_INTERVAL 秒
+scan_due() {
+	local last now
+	last=$(cat "$SCAN_TS" 2>/dev/null || echo 0)
+	now=$(date +%s)
+	[ $((now - last)) -ge "$PROBE_INTERVAL" ] && { echo "$now" > "$SCAN_TS"; return 0; }
+	return 1
+}
+
 # 状态机：
 #   normal: 上游在线则计数清零；离线累计 DOWN_THRESHOLD 次 → 禁用 STA 进入 mgmt
-#   mgmt  : STA 禁用时先启用它做一次真实关联探测；若关联成功(wwan up)→ 回 normal；
-#           STA 已启用但仍在 DOWN_THRESHOLD 次内未连上 → 重新禁用，保住 AP 信道覆盖
-#           如此循环，直到上游真正恢复。
+#   mgmt  : STA 已禁用，AP 独占固定信道，保持稳定（不再反复抢占 radio）。
+#           仅在扫描节流间隔到期时用被动扫描判断上游可见性；可见才临时启用 STA，
+#           给 PROBE_WINDOW 秒窗口做真实关联，成功(wwan up)→ 回 normal；
+#           超时未连上 → 再次禁用 STA，AP 重新稳定。绝不在每轮都切换 STA。
 watchdog_once() {
 	local sta_cfg upstream_ssid sta_disabled mode cnt
 
@@ -253,23 +278,34 @@ watchdog_once() {
 		return 0
 	fi
 
-	# ---- mgmt 态 ----
-	if [ "$sta_disabled" = "1" ]; then
-		# 禁用中：启用 STA 做一次真实关联探测
+	# ---- mgmt 态：AP 已独占信道，保持稳定。仅按节流间隔探测上游是否恢复 ----
+	[ "$sta_disabled" = "1" ] || return 0     # 正在探测窗口期（STA 已启用），不干预
+	if ! scan_due; then
+		return 0                              # 未到扫描节流点，保持 AP 稳定
+	fi
+	if scan_for_ssid "$upstream_ssid"; then
+		# 上游可见：临时启用 STA，给一个关联窗口
 		uci set wireless.$sta_cfg.disabled='0'
 		uci commit wireless
 		wifi reload >/dev/null 2>&1
-		echo 0 > "$DOWN_CNT"
-		return 0
-	fi
-	# STA 已启用但 wwan 仍没起来：累计，超时则重新禁用，保住 AP 覆盖
-	cnt=$((cnt+1)); echo "$cnt" > "$DOWN_CNT"
-	if [ "$cnt" -ge "$DOWN_THRESHOLD" ]; then
-		uci set wireless.$sta_cfg.disabled='1'
-		uci commit wireless
-		wifi reload >/dev/null 2>&1
-		echo 0 > "$DOWN_CNT"
-		log "探测 '$upstream_ssid' 暂未恢复，禁用 STA 保持管理信道"
+		log "探测到 '$upstream_ssid' 可见，尝试恢复中继"
+		local i=0
+		while [ "$i" -lt "$PROBE_WINDOW" ]; do
+			sleep 1
+			wwan_up && break
+			i=$((i+1))
+		done
+		if wwan_up; then
+			echo normal > "$STATE_FILE"
+			: > "$DOWN_CNT"
+			log "中继已恢复，退出管理态"
+		else
+			# 可见却连不上（可能密码/信号），重新禁用 STA，保住 AP 覆盖
+			uci set wireless.$sta_cfg.disabled='1'
+			uci commit wireless
+			wifi reload >/dev/null 2>&1
+			log "'$upstream_ssid' 可见但关联失败，禁用 STA 保持管理信道"
+		fi
 	fi
 }
 
@@ -307,7 +343,12 @@ start_service() {
 }
 
 # ================= 状态查询 =================
-status() {
+# procd 的 `status` 命令会调用此钩子（避免与 rc.common 内置 status 冲突）
+status_service() {
+	show
+}
+
+show() {
 	local radio iface net mode ssid op_chan
 
 	echo "== radio =="
