@@ -22,6 +22,9 @@ SOURCE_BRANCH=v25.12.2
 EASYTIER_TAG=v2.6.4
 
 cd "$WORKDIR"
+if [ ! -d "$WORKDIR/gl-ar300m-ext-nand" ]; then
+  git clone --depth=1 https://github.com/jcleng/gl-ar300m-ext-nand
+fi
 
 # 0. 拉取上游源码(若不存在)
 if [ ! -d openwrt/.git ]; then
